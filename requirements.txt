@@ -1,0 +1,4 @@
+aioboto3==4.0.2
+boto3==1.7.74
+pygithub==1.40
+tabulate==0.8.2

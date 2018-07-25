@@ -1,0 +1,10 @@
+-r requirements.txt
+
+flake8==3.5.0
+flake8-bugbear==18.8.0
+flake8-colors==0.1.6
+flake8-comprehensions==1.4.1
+flake8-import-order==0.17.1
+flake8-quotes==1.0.0
+flake8-tuple==0.2.13
+mypy==0.620

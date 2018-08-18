@@ -7,14 +7,15 @@ import os
 import sqlite3
 import sys
 import time
-from asyncio import Future
-from typing import List, Tuple
+from typing import Any, Awaitable, Coroutine, List, Tuple
 
 import aioboto3
 
 import boto3
 from boto3.dynamodb.conditions import Key
 from boto3.resources.base import ServiceResource
+
+from flask import Flask, request
 
 import github
 
@@ -106,14 +107,14 @@ class GitHubWatcherSqlite():
 
 
 class GitHubWatcherDynamodb:
-    def __init__(self, g: github.MainClass.Github) -> None:
+    def __init__(self, g: github.MainClass.Github, loop: asyncio.AbstractEventLoop) -> None:
         self.g = g
+        self.loop = loop
         self.dynamodb = boto3.resource("dynamodb")
-        self.aiodynamodb = aioboto3.resource("dynamodb")
+        self.aiodynamodb = aioboto3.resource("dynamodb", loop=loop)
 
     def close(self) -> None:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.aiodynamodb.close())
+        self.loop.run_until_complete(self.aiodynamodb.close())
 
     def createdb(self) -> None:
         self.dynamodb.create_table(
@@ -303,8 +304,7 @@ class GitHubWatcherDynamodb:
                 Limit=1,
                 ScanIndexForward=False
             )]
-        loop = asyncio.get_event_loop()
-        responses = loop.run_until_complete(asyncio.gather(*futures))
+        responses = self.loop.run_until_complete(asyncio.gather(*futures, loop=loop))
         for response in responses:
             for item in response["Items"]:
                 versions += [(item["repo"], item["version"], item["created_at"])]
@@ -312,12 +312,38 @@ class GitHubWatcherDynamodb:
         return versions
 
 
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+app = Flask(__name__)
+
+@app.route("/")  # type: ignore
+def root() -> str:
+    user = request.args.get("user")
+    if user is None:
+        # TODO: serve help page
+        return "Must provide HTTP query parameter \"user\"."
+
+    access_token = os.environ["GITHUB_ACCESS_TOKEN"]
+    g = github.Github(access_token, per_page=100)
+    # TODO: backend flag
+    #ghw = GitHubWatcherSqlite(g)
+    ghw = GitHubWatcherDynamodb(g, loop)
+    try:
+        versions = ghw.query_stars(user)
+    finally:
+        ghw.close()
+
+    versions.sort(key=lambda x: x[2])
+    headers = ["Repository", "Version", "Date"]
+    return tabulate.tabulate(versions, headers, tablefmt="html")
+
+
 def main() -> None:
     access_token = os.environ["GITHUB_ACCESS_TOKEN"]
     g = github.Github(access_token, per_page=100)
     # TODO: backend flag
     #ghw = GitHubWatcherSqlite(g)
-    ghw = GitHubWatcherDynamodb(g)
+    ghw = GitHubWatcherDynamodb(g, loop)
 
     try:
         # TODO: more robust parsing
@@ -344,7 +370,7 @@ def main() -> None:
             ghw.fetch_user(sys.argv[2])
 
         elif sys.argv[1] == "querystars":
-            versions = ghw.query_stars(sys.argv[2])
+            versions = loop.run_until_complete(ghw.query_stars(sys.argv[2]))
 
             versions.sort(key=lambda x: x[2])
             headers = ["Repository", "Version", "Date"]
@@ -353,8 +379,10 @@ def main() -> None:
         else:
             raise NotImplementedError()
     finally:
-        ghw.close()
+        loop.run_until_complete(ghw.close())
 
 
 if __name__ == "__main__":
-    main()
+    # TODO: sink app initialization into main command
+    #main()
+    app.run(debug=True)

@@ -29,6 +29,7 @@ pip install --requirement requirements.txt
   - conditional GET?
   - https://developer.github.com/v3/#rate-limiting
 * tests
+* tags with same timestamp, e.g., rel/jclouds-2.1.1-rc1 and rel/jclouds-2.1.1
 
 ## Requirements
 

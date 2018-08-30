@@ -1,39 +1,19 @@
-# GitHubWatch
+# GitHub Version RSS Feed
 
-Watch GitHub repositories for new releases.
+Watch starred GitHub repositories for new releases via RSS.  Packages as a
+Flask web application which can be deployed in AWS via Zappa.
 
 ## Usage
 
 ```
-mkvirtualenv --python=`which python3.6` githubwatch
-workon githubwatch
-pip install --requirement requirements.txt
+mkvirtualenv --python=`which python3.6` github_version_rss
+workon github_version_rss
+pip install --requirement requirements-dev.txt
  export GITHUB_ACCESS_TOKEN=...
-./githubwatch.py COMMAND [USER]
+./github_version_rss.py
 ```
 
-## TODO
-
-* automatically fetch user stars
-* run as web service
-  - landing page shows latest releases for a given user in table
-  - some way to detect GitHub user name?
-* provide RSS feed
-* email user updates
-  - use github email
-* periodically refresh `user_stars` and `versions` tables
-  - initial experience poor with nothing refreshed until interval
-* rate limiting
-  - limited to 5,000 requests per hour
-    + how many requests per repo?
-  - conditional GET?
-  - https://developer.github.com/v3/#rate-limiting
-* tests
-* tags with same timestamp, e.g., rel/jclouds-2.1.1-rc1 and rel/jclouds-2.1.1
-
 ## Requirements
-
-TODO:
 
 * Tested with Python 3.6 on Ubuntu 14.04
 
@@ -42,5 +22,3 @@ TODO:
 Copyright (C) 2018 Andrew Gaul
 
 Licensed under the Apache License, Version 2.0
-
-TODO: Apache or MIT?  AGPL?

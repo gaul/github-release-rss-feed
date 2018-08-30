@@ -1,5 +1,5 @@
-aioboto3==4.0.2
-boto3==1.7.74
 flask==1.0.2
-pygithub==1.40
+PyRSS2Gen==1.1
+python-dateutil==2.6.1
+requests==2.19.1
 tabulate==0.8.2

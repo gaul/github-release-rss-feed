@@ -197,6 +197,12 @@ def rss() -> str:
     return rss.to_xml()  # type: ignore
 
 
+@app.after_request  # type: ignore
+def add_header(response: Response) -> Response:
+    response.cache_control.max_age = 60 * 60
+    return response
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         sys.exit("Must provide GitHub user")

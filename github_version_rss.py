@@ -34,7 +34,7 @@ INDEX_HTML = """\
 
 <form action="{}/rss" method="GET">
     <input type="text" name="user" />
-    <input type="submit" />
+    <input type="submit" value="Create feed" />
 </form>
 
 <p><a href="https://github.com/gaul/github-version-rss-feed">Source code</a></p>

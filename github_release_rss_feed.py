@@ -23,12 +23,12 @@ INDEX_HTML = """\
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GitHub version RSS feed</title>
+    <title>GitHub Release RSS feed</title>
 </head>
 
 <body>
 
-<h1>GitHub version RSS feed</h1>
+<h1>GitHub Release RSS feed</h1>
 
 <p>Watch starred GitHub repositories for new releases via RSS.</p>
 
@@ -37,7 +37,7 @@ INDEX_HTML = """\
     <input type="submit" value="Create feed" />
 </form>
 
-<p><a href="https://github.com/gaul/github-version-rss-feed">Source code</a></p>
+<p><a href="https://github.com/gaul/github-release-rss-feed">Source code</a></p>
 
 </body>
 </html>
@@ -97,7 +97,7 @@ query {{
 """
 
 
-class Version:
+class Release:
     def __init__(self, repo: str, name: str, date: datetime, *, url: Optional[str]=None) -> None:
         self.repo = repo
         self.name = name
@@ -113,24 +113,24 @@ def run_query(query: str, headers: Dict[str, str]) -> Dict[str, Any]:
         raise Exception("Query failed to run by returning code of {}. {}".format(request.status_code, query))
 
 
-def fetch_versions(user: str) -> List[Version]:
+def fetch_releases(user: str) -> List[Release]:
     access_token = os.environ["GITHUB_ACCESS_TOKEN"]
     headers = {"Authorization": "token {}".format(access_token)}
 
-    versions: List[Version] = []
+    releases: List[Release] = []
     cursor = "null"
     while True:
         result = run_query(QUERY_STARS.format(user, cursor), headers)
         for edge in result["data"]["user"]["starredRepositories"]["edges"]:
             node = edge["node"]
             repo = node["nameWithOwner"]
-            releases = node["releases"]["nodes"]
+            nodes = node["releases"]["nodes"]
             tags = node["tags"]["edges"]
 
-            if len(releases) > 0 and releases[0] is not None:
-                release = releases[0]
+            if len(nodes) > 0 and nodes[0] is not None:
+                release = nodes[0]
                 date = release["publishedAt"]
-                versions += [Version(repo, release["tag"]["name"], dateutil.parser.parse(date), url=release["url"])]
+                releases += [Release(repo, release["tag"]["name"], dateutil.parser.parse(date), url=release["url"])]
             elif len(tags) > 0:
                 tag = tags[0]["tag"]
                 target = tag["target"]
@@ -140,14 +140,14 @@ def fetch_versions(user: str) -> List[Version]:
                 else:
                     # lightweight tags lack tagger
                     date = target["committer"]["date"]
-                versions += [Version(repo, tag["name"], dateutil.parser.parse(date))]
+                releases += [Release(repo, tag["name"], dateutil.parser.parse(date))]
 
         page_info = result["data"]["user"]["starredRepositories"]["pageInfo"]
         if not page_info["hasNextPage"]:
             break
         cursor = "\"{}\"".format(page_info["endCursor"])
 
-    return versions
+    return releases
 
 
 @app.route("/")  # type: ignore
@@ -156,12 +156,12 @@ def root() -> str:
     if user is None:
         return INDEX_HTML.format(request.base_url)
 
-    versions = fetch_versions(user)
-    versions.sort(key=lambda x: x.date, reverse=True)
+    releases = fetch_releases(user)
+    releases.sort(key=lambda x: x.date, reverse=True)
 
-    title = "<title>GitHub version feed for {}</title>".format(user)
-    headers = ["Repository", "Version", "Date"]
-    body = tabulate.tabulate([(v.repo, v.name, v.date.strftime("%Y-%m-%d")) for v in versions], headers, tablefmt="html")
+    title = "<title>GitHub Release feed for {}</title>".format(user)
+    headers = ["Repository", "Release", "Date"]
+    body = tabulate.tabulate([(v.repo, v.name, v.date.strftime("%Y-%m-%d")) for v in releases], headers, tablefmt="html")
     link = "<p><a href=\"{}rss?user={}\">link to RSS</a></p>".format(request.base_url, user)
     return "\n".join([title, body, link])
 
@@ -172,26 +172,26 @@ def rss() -> str:
     if user is None:
         abort(Response("Must provide HTTP query parameter \"user\".", 400))
 
-    versions = fetch_versions(user)
-    versions.sort(key=lambda x: x.date, reverse=True)
+    releases = fetch_releases(user)
+    releases.sort(key=lambda x: x.date, reverse=True)
 
-    def create_description(version: Version) -> Optional[str]:
-        if version.url is not None:
-            return "<a href=\"{}\">Release notes</a>".format(version.url)
+    def create_description(release: Release) -> Optional[str]:
+        if release.url is not None:
+            return "<a href=\"{}\">Release notes</a>".format(release.url)
         return None
 
     rss = PyRSS2Gen.RSS2(
-        title="GitHub version RSS feed for {}".format(user),
-        description="Newest versions of all starred repositories",
+        title="GitHub Release RSS feed for {}".format(user),
+        description="Newest releases of all starred repositories",
         link=request.base_url,
         lastBuildDate=datetime.now(),
         items=[PyRSS2Gen.RSSItem(
-            title="{} {} released".format(version.repo, version.name),
-            link=version.url,
-            description=create_description(version),
+            title="{} {} released".format(release.repo, release.name),
+            link=release.url,
+            description=create_description(release),
             # TODO: guid
-            pubDate=version.date)
-            for version in versions]
+            pubDate=release.date)
+            for release in releases]
     )
 
     return rss.to_xml()  # type: ignore
@@ -206,10 +206,12 @@ def add_header(response: Response) -> Response:
 def main() -> None:
     if len(sys.argv) != 2:
         sys.exit("Must provide GitHub user")
-    versions = fetch_versions(sys.argv[1])
-    versions.sort(key=lambda x: x.date)
-    headers = ["Repository", "Version", "Date"]
-    print(tabulate.tabulate([(v.repo, v.name, v.date.strftime("%Y-%m-%d")) for v in versions], headers, tablefmt="simple"))
+    releases = fetch_releases(sys.argv[1])
+    print(type(releases[0]))
+    print(releases[0])
+    releases.sort(key=lambda x: x.date)
+    headers = ["Repository", "Release", "Date"]
+    print(tabulate.tabulate([(v.repo, v.name, v.date.strftime("%Y-%m-%d")) for v in releases], headers, tablefmt="simple"))
 
 
 if __name__ == "__main__":

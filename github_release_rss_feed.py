@@ -51,7 +51,7 @@ query {{
         remaining
         resetAt
     }}
-    user(login: {}) {{
+    user(login: "{}") {{
         login
         starredRepositories(first: 100, after: {}) {{
             edges {{
